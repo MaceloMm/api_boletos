@@ -1,11 +1,11 @@
-from fpdf import FPDF
-from datetime import datetime
-import base64
+from PIL import Image, ImageDraw, ImageFont
 import io
+import base64
+from datetime import datetime
 from random import randint
 
 
-class GeradorBoleto:
+class GeradorBoletoImagem:
     def __init__(self, nome, valor, data_vencimento):
         self.nome = nome
         self.valor = valor
@@ -30,75 +30,163 @@ class GeradorBoleto:
         parte4 = randint(10000, 99999)
         parte5 = randint(10000, 99999)
         parte6 = randint(100, 999)
-
         return f"{parte1}.{parte2} {parte3}.{parte4} {parte5}.{parte6} {randint(0, 9)} {self.codigo_barras[:14]}"
 
-    def criar_boleto_base64(self):
-        pdf = FPDF('P', 'mm', 'A4')
-        pdf.add_page()
+    def criar_boleto_imagem(self, formato='PNG'):
+        # Criar imagem com tamanho similar a A4 (595x842 pixels em 72 DPI)
+        width, height = 595, 842
+        img = Image.new('RGB', (width, height), 'white')
+        draw = ImageDraw.Draw(img)
 
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_fill_color(240, 240, 240)
+        # Tentar carregar fontes
+        try:
+            # Para Windows
+            font_bold_large = ImageFont.truetype("arialbd.ttf", 20)
+            font_bold = ImageFont.truetype("arialbd.ttf", 14)
+            font_normal = ImageFont.truetype("arial.ttf", 12)
+            font_small = ImageFont.truetype("arial.ttf", 10)
+            font_code = ImageFont.truetype("cour.ttf", 10)
+        except:
+            try:
+                # Para Linux/Mac
+                font_bold_large = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
+                font_bold = ImageFont.truetype("DejaVuSans-Bold.ttf", 14)
+                font_normal = ImageFont.truetype("DejaVuSans.ttf", 12)
+                font_small = ImageFont.truetype("DejaVuSans.ttf", 10)
+                font_code = ImageFont.truetype("DejaVuSansMono.ttf", 10)
+            except:
+                # Fallback para fontes básicas (tamanhos ajustados)
+                font_bold_large = ImageFont.load_default()
+                font_bold = ImageFont.load_default()
+                font_normal = ImageFont.load_default()
+                font_small = ImageFont.load_default()
+                font_code = ImageFont.load_default()
 
-        pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, 'Boleto Bancário Fictício', 0, 1, 'C')
-        pdf.ln(5)
+        # Posições iniciais (agora começando de cima para baixo)
+        x, y = 50, 50
+        line_height = 20
+        section_spacing = 10
 
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 8, 'Beneficiário: Banco Fictício S.A.', 0, 1)
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 8, 'Agência: 0001-9 / Conta: 0101010-1', 0, 1)
-        pdf.cell(0, 8, 'CNPJ: 00.000.000/0001-00', 0, 1)
-        pdf.ln(5)
+        # Título (CENTRALIZADO)
+        titulo = "BOLETO BANCÁRIO FICTÍCIO"
+        titulo_width = draw.textlength(titulo, font=font_bold_large)
+        draw.text(((width - titulo_width) // 2, y), titulo, fill='black', font=font_bold_large)
+        y += line_height * 2
 
-        pdf.set_font('Arial', 'B', 14)
+        # Linha separadora
+        draw.line([x, y, width - x, y], fill='black', width=1)
+        y += section_spacing
+
+        # Beneficiário
+        draw.text((x, y), "Beneficiário: Banco Fictício S.A.", fill='black', font=font_bold)
+        y += line_height
+        draw.text((x, y), "Agência: 0001-9 / Conta: 0101010-1", fill='black', font=font_normal)
+        y += line_height
+        draw.text((x, y), "CNPJ: 00.000.000/0001-00", fill='black', font=font_normal)
+        y += line_height * 2
+
+        # Linha separadora
+        draw.line([x, y, width - x, y], fill='black', width=1)
+        y += section_spacing
+
+        # Linha digitável
         linha_digitavel = self.gerar_linha_digitavel()
-        pdf.cell(0, 10, f'Linha Digitável: {linha_digitavel}', 0, 1)
-        pdf.ln(5)
+        draw.text((x, y), "Linha Digitável:", fill='black', font=font_bold)
+        y += line_height
+        draw.text((x, y), linha_digitavel, fill='black', font=font_code)
+        y += line_height * 2
 
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 8, 'Dados do Pagador', 0, 1)
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 8, f'Nome: {self.nome}', 0, 1)
-        pdf.ln(5)
+        # Linha separadora
+        draw.line([x, y, width - x, y], fill='black', width=1)
+        y += section_spacing
 
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 8, 'Informações de Pagamento', 0, 1)
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 8, f'Data de Emissão: {self.data_emissao}', 0, 1)
-        pdf.cell(0, 8, f'Data de Vencimento: {self.data_vencimento}', 0, 1)
-        pdf.cell(0, 8, f'Valor do Documento: {self.formatar_valor()}', 0, 1)
-        pdf.cell(0, 8, f'Número do Documento: {self.numero_documento}', 0, 1)
-        pdf.ln(10)
+        # Dados do pagador
+        draw.text((x, y), "DADOS DO PAGADOR", fill='black', font=font_bold)
+        y += line_height
+        draw.text((x, y), f"Nome: {self.nome}", fill='black', font=font_normal)
+        y += line_height * 2
 
-        pdf.set_font('Arial', 'B', 10)
-        pdf.cell(0, 8, 'Código de Barras:', 0, 1)
-        pdf.set_font('Courier', '', 10)
-        pdf.multi_cell(0, 5, self.codigo_barras)
-        pdf.ln(5)
+        # Linha separadora
+        draw.line([x, y, width - x, y], fill='black', width=1)
+        y += section_spacing
 
-        pdf.set_font('Arial', 'I', 10)
-        pdf.cell(0, 8, 'Instruções:', 0, 1)
-        pdf.multi_cell(0, 5, '- Pagável em qualquer banco até o vencimento')
-        pdf.multi_cell(0, 5, '- Após o vencimento, pagar apenas no Banco Fictício S.A.')
-        pdf.multi_cell(0, 5, '- Não receber após 30 dias do vencimento')
-        pdf.ln(5)
+        # Informações de pagamento
+        draw.text((x, y), "INFORMAÇÕES DE PAGAMENTO", fill='black', font=font_bold)
+        y += line_height
+        draw.text((x, y), f"Data de Emissão: {self.data_emissao}", fill='black', font=font_normal)
+        y += line_height
+        draw.text((x, y), f"Data de Vencimento: {self.data_vencimento}", fill='black', font=font_normal)
+        y += line_height
+        draw.text((x, y), f"Valor do Documento: {self.formatar_valor()}", fill='black', font=font_normal)
+        y += line_height
+        draw.text((x, y), f"Número do Documento: {self.numero_documento}", fill='black', font=font_normal)
+        y += line_height * 2
 
-        pdf.set_font('Arial', 'I', 8)
-        pdf.cell(0, 5, 'Este é um boleto fictício para fins de demonstração.', 0, 1, 'C')
+        # Linha separadora
+        draw.line([x, y, width - x, y], fill='black', width=1)
+        y += section_spacing
 
-        # Salvar o PDF em memória e converter para base64
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
-        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        # Código de barras
+        draw.text((x, y), "CÓDIGO DE BARRAS:", fill='black', font=font_bold)
+        y += line_height
+        draw.text((x, y), self.codigo_barras, fill='black', font=font_code)
+        y += line_height * 2
 
-        return pdf_base64
+        # Linha separadora
+        draw.line([x, y, width - x, y], fill='black', width=1)
+        y += section_spacing
+
+        # Instruções
+        draw.text((x, y), "INSTRUÇÕES:", fill='black', font=font_bold)
+        y += line_height
+        draw.text((x, y), "- Pagável em qualquer banco até o vencimento", fill='black', font=font_small)
+        y += line_height
+        draw.text((x, y), "- Após o vencimento, pagar apenas no Banco Fictício S.A.", fill='black', font=font_small)
+        y += line_height
+        draw.text((x, y), "- Não receber após 30 dias do vencimento", fill='black', font=font_small)
+        y += line_height
+
+        # Rodapé (centralizado na parte inferior)
+        rodape = "Este é um boleto fictício para fins de demonstração."
+        rodape_width = draw.textlength(rodape, font=font_small)
+        draw.text(((width - rodape_width) // 2, height - 40), rodape, fill='gray', font=font_small)
+
+        # Adicionar borda ao redor do boleto
+        draw.rectangle([20, 20, width - 20, height - 20], outline='black', width=2)
+
+        # Salvar em buffer
+        buffer = io.BytesIO()
+        if formato.upper() == 'JPG':
+            img.save(buffer, format='JPEG', quality=95)
+        else:
+            img.save(buffer, format='PNG')
+
+        buffer.seek(0)
+
+        # Converter para base64
+        img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        return img_base64
+
+    def salvar_imagem(self, filename='boleto.png'):
+        """Método auxiliar para salvar a imagem diretamente"""
+        img_data = self.criar_boleto_imagem()
+        formato = filename.split('.')[-1].upper()
+
+        if formato not in ['PNG', 'JPG', 'JPEG']:
+            formato = 'PNG'
+            filename = 'boleto.png'
+
+        with open(filename, 'wb') as f:
+            f.write(base64.b64decode(img_data))
+        print(f"Imagem salva como '{filename}'")
 
 
 if __name__ == "__main__":
-    boleto = GeradorBoleto('macelo', 300, '29/08/2025')
-    base64_string = boleto.criar_boleto_base64()
-    print("PDF em base64:")
-    print(base64_string)
-    with open("boleto_base64.txt", "w") as f:
-        f.write(base64_string)
-    print("\nBase64 salvo em 'boleto_base64.txt'")
+    boleto = GeradorBoletoImagem('Marcelo Silva', 300.50, '29/08/2025')
+
+    # Obter imagem em base64
+    imagem_base64 = boleto.criar_boleto_imagem()
+    print("Imagem gerada com sucesso!")
+
+    # Salvar a imagem
+    boleto.salvar_imagem('boleto.png')
