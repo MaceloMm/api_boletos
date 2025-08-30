@@ -157,9 +157,9 @@ class GeradorBoletoImagem:
         # Salvar em buffer
         buffer = io.BytesIO()
         if formato.upper() == 'JPG':
-            img.save(buffer, format='JPEG', quality=95)
+            img.save(buffer, format='JPEG', quality=75, optimize=True)
         else:
-            img.save(buffer, format='PNG')
+            img.save(buffer, format='PNG', optimize=True)
 
         buffer.seek(0)
 

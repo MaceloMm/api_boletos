@@ -28,7 +28,7 @@ async def get_boleto(name: str, value: float, vencimento: str):
 
     # Cria o boleto como imagem
     boleto = GeradorBoletoImagem(name, value, vencimento)
-    imagem_base64 = boleto.criar_boleto_imagem()
+    imagem_base64 = boleto.criar_boleto_imagem(formato='JPEG')
 
     if imagem_base64:
         return Response(
