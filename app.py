@@ -31,12 +31,9 @@ async def get_boleto(name: str, value: float, vencimento: str):
     imagem_base64 = boleto.criar_boleto_imagem()
 
     if imagem_base64:
-        return JSONResponse(
-            {
-                'base64': imagem_base64,
-                'formato': 'image/png',
-                'nome_arquivo': f'boleto_{name.replace(" ", "_")}.png'
-            },
+        return Response(
+            content=imagem_base64,
+            media_type="text/plain",
             status_code=200
         )
 
